@@ -16,25 +16,28 @@ export default function Election() {
   const instance = useRef<any>();
   const [data, setData] = useState<any[]>([]);
 
-  const [curRes, setCurRes] = useState<number[]>([0, 0, 0]);
+  const [currentNumberOfExtractions, setCurrentNumberOfExtractions] =
+    useState(3);
+  const [curRes, setCurRes] = useState<number[]>(() =>
+    Array.from({ length: currentNumberOfExtractions }, () => 0)
+  );
   const [noUseTeam, setNoUseTeam] = useState<number[]>([]);
   const [changeValue, setChangeValue] = useState<number>(0);
   const [isPause, setPause] = useState(true);
   const [isAllSelected, setAllSelected] = useState(false);
 
-  const [datad, setddd] = useState<any>();
   const [curFilePath, setCurFilePath] = useState<string | string[]>();
   const animated = useRef<any>();
 
   //   开始抽签
   function select() {
+    console.log(curRes.length);
     if (data.length === 0) {
       alert("数据为空，请先添加数据");
       return;
     }
 
-    const res = instance.current.extractionGroups();
-
+    const res = instance.current.extractionGroups(currentNumberOfExtractions);
     if (res) {
       setPause(false);
       getTargetNumber();
@@ -78,7 +81,6 @@ export default function Election() {
   const handleFIleUploadV2 = (path: string | string[]) => {
     console.log("🚀 ~ handleFileUpload ~ file:", path);
     if (!path) return;
-    // setCount((perv) => perv + 1);
     setCurFilePath(path);
     invoke("read_excel", { filePath: path })
       .then((data: any) => {
@@ -89,11 +91,7 @@ export default function Election() {
         instance.current = new RandomNumberGenerator(sheet);
         setNoUseTeam(instance.current.getNotFoundNumber());
       })
-      .catch((err) => {
-        // setCount((perv) => perv + 1);
-
-        setddd(err);
-      });
+      .catch((err) => {});
   };
 
   const updateExcel = () => {
@@ -116,10 +114,17 @@ export default function Election() {
     updateExcel();
   };
 
+  // 配置痰喘显示
   const [isShow, setShow] = useState(false);
   const [groupCount, setGroupCount] = useState(
     instance.current?.getGroupNumber || 23
   );
+
+  useEffect(() => {
+    setCurRes(() =>
+      Array.from({ length: currentNumberOfExtractions }, (_) => 0)
+    );
+  }, [currentNumberOfExtractions]);
 
   return (
     <main className="w-full h-full flex flex-col justify-center  gap-8  relative ">
@@ -161,27 +166,20 @@ export default function Election() {
           <div className="mt-6 flex justify-center gap-6 w-full">
             {isAllSelected === false ? (
               <>
-                <div className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center ">
-                  {changeValue && !isPause
-                    ? changeValue
-                    : isPause && curRes[0]
-                    ? curRes[0]
-                    : "?"}
-                </div>
-                <div className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center ">
-                  {changeValue && !isPause
-                    ? changeValue + 2
-                    : isPause && curRes[1]
-                    ? curRes[1]
-                    : "?"}
-                </div>
-                <div className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center ">
-                  {changeValue && !isPause
-                    ? changeValue + 3
-                    : isPause && curRes[2]
-                    ? curRes[2]
-                    : "?"}
-                </div>
+                {curRes.map((item, index) => {
+                  return (
+                    <div
+                      key={index}
+                      className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center "
+                    >
+                      {changeValue && !isPause
+                        ? changeValue
+                        : isPause && item
+                        ? item
+                        : "?"}
+                    </div>
+                  );
+                })}
               </>
             ) : (
               <div>已经全部选取完毕或不够下次抽取</div>
@@ -220,14 +218,29 @@ export default function Election() {
         onSubmit={() => update(groupCount)}
         children={
           <div className="flex flex-col gap-2">
-            <label htmlFor="groupCount">
-              组数：
+            <label htmlFor="groupCount" className="flex items-center">
+              <span className=" w-56">总小组数：</span>
               <input
+                className=" w-full"
                 type="number"
                 name="groupCount"
                 id="groupCount"
                 value={groupCount}
                 onChange={(event) => setGroupCount(Number(event.target.value))}
+              />
+            </label>
+            <label htmlFor="groupCount" className=" flex items-center">
+              <span className=" w-56">每抽取数：</span>
+
+              <input
+                type="number"
+                name="groupCount"
+                id="groupCount"
+                className=" w-full"
+                value={currentNumberOfExtractions}
+                onChange={(event) =>
+                  setCurrentNumberOfExtractions(Number(event.target.value))
+                }
               />
             </label>
           </div>
@@ -246,7 +259,6 @@ class RandomNumberGenerator {
   preRes: number[] = [];
   curRes: number[] = [];
   constructor(sheets: sheetData) {
-    console.log("🚀 ~ RandomNumberGenerator ~ constructor ~ sheets:", sheets);
     // 已经抽的结构缓存
     const usedNumbers: number[] = [];
 
@@ -322,33 +334,29 @@ class RandomNumberGenerator {
     return this.numbers.length;
   }
 
-  // 3个为一组的抽取三组
-  public extractionGroups() {
+  // count个为一组的抽取三组
+  public extractionGroups(count: number) {
     if (this.curRes.length) {
       this.preRes = this.curRes;
     }
     // 数据清空
     this.curRes.length = 0;
     if (this.getNotFoundNumber().length <= 3) {
-      console.log("extractionGroups------------");
-
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < count; i++) {
         const res = this.getRandomNumber();
-        console.log(
-          "🚀 ~ RandomNumberGenerator ~ extractionGroups ~ res:",
-          res
-        );
         if (res) {
           this.curRes.push(res);
         }
       }
+
+      // 格式化数据
       const date = formatDateTable(convertExcelDate(this.sheet[0][7]));
 
       this.sheet.push([date, ...this.curRes]);
       return false;
     }
 
-    for (let i = 0; i <= 2; i++) {
+    for (let i = 0; i < count; i++) {
       const res = this.getRandomNumber();
       if (res) {
         this.curRes.push(res);
@@ -356,6 +364,7 @@ class RandomNumberGenerator {
         return false;
       }
     }
+
     const date = formatDateTable(convertExcelDate(this.sheet[0][7]));
     const finialRes = fillArrayToSeven([date, ...this.curRes]);
     // 将获取到结果更新到sheet
