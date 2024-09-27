@@ -49,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({
               type="button"
               onClick={() => onSubmit()}
             >
-              更改
+              保存
             </button>
           </div>
         </div>

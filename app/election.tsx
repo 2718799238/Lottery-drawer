@@ -1,120 +1,129 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/tauri";
+import { open } from "@tauri-apps/api/dialog";
+import { useEffect, useState } from "react";
 import Modal from "./Component/Modal";
-import {
-  calculateWeeksBetweenDates,
-  convertExcelDate,
-  convertToChinese,
-  formatTime,
-  getWeekday,
-} from "./utils";
-import FileOpener from "./Component/input";
 
+import FileOpener from "./Component/input";
+import { useChangeNumber } from "./hook/getChangeNumber";
+import { createExcelTemplate, updateExcel, uploadExcelFile } from "./api";
+import { Button, message } from "antd";
+import { useGetRandom } from "./hook/getRandom";
 export default function Election() {
-  const instance = useRef<any>();
+  // 保存Excel数据
   const [data, setData] = useState<any[]>([]);
 
-  const [currentNumberOfExtractions, setCurrentNumberOfExtractions] =
-    useState(3);
-  const [curRes, setCurRes] = useState<number[]>(() =>
-    Array.from({ length: currentNumberOfExtractions }, () => 0)
-  );
   const [noUseTeam, setNoUseTeam] = useState<number[]>([]);
-  const [changeValue, setChangeValue] = useState<number>(0);
-  const [isPause, setPause] = useState(true);
   const [isAllSelected, setAllSelected] = useState(false);
+  const [curFilePath, setCurFilePath] = useState<string | string[]>("");
+  const { isPause, setPause, number: changeValue } = useChangeNumber(23);
 
-  const [curFilePath, setCurFilePath] = useState<string | string[]>();
-  const animated = useRef<any>();
+  // 创建抽奖类实例
+  const { instance, createInstance } = useGetRandom();
 
+  const [currentNumberOfExtractions, setCurrentNumberOfExtractions] = useState(
+    instance.current?.getNumberOfExtractions() || 0
+  );
+
+  const [curRes, setCurRes] = useState<number[]>(() =>
+    Array.from(
+      { length: instance.current?.getNumberOfExtractions() || 0 },
+      () => 0
+    )
+  );
   //   开始抽签
   function select() {
-    console.log(curRes.length);
-    if (data.length === 0) {
+    if (instance.current!.getSheets().length === 0) {
       alert("数据为空，请先添加数据");
       return;
     }
-
-    const res = instance.current.extractionGroups(currentNumberOfExtractions);
-    if (res) {
-      setPause(false);
-      getTargetNumber();
-      setCurRes(() => [...res]);
-    } else {
-      setAllSelected(true);
-      setNoUseTeam(instance.current.getNotFoundNumber());
+    try {
+      if (instance.current) {
+        const { result, isCanContinue } = instance.current.extractionGroups(
+          currentNumberOfExtractions
+        );
+        if (isCanContinue) {
+          setPause(false);
+          setCurRes(() => [...result]);
+        } else {
+          setAllSelected(true);
+          setCurRes(() => [...result]);
+          messageApi.success("抽签完毕，或不够下次抽取,最终结果如下：");
+          if (instance.current) {
+            setNoUseTeam(instance.current.getNotFoundGroup());
+          }
+        }
+      }
+    } catch (error) {
+      messageApi.error("抽签失败" + error);
     }
   }
 
   //   结束抽取
   function pause() {
     setPause(true);
-    setNoUseTeam(instance.current.getNotFoundNumber());
+    if (instance.current) {
+      setNoUseTeam(instance.current.getNotFoundGroup());
+    }
   }
 
-  //  控制动画数字切换的
-  function getTargetNumber() {
-    const canUseNumber: number[] = [
-      23, 1, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-    ];
-
-    function animate() {
-      const res = Math.floor(Math.random() * canUseNumber.length);
-      //   console.log(res);
-      setChangeValue(canUseNumber[res]);
-      if (isPause) {
-        cancelAnimationFrame(animated.current);
-      }
-      animated.current = requestAnimationFrame(() => animate());
-    }
-    animate();
-  }
-
-  useEffect(() => {
-    if (isPause) {
-      cancelAnimationFrame(animated.current);
-    }
-  }, [changeValue, isPause]);
-
+  // 一键上传解析文件
+  const [messageApi, contextHolder] = message.useMessage();
   const handleFIleUploadV2 = (path: string | string[]) => {
-    console.log("🚀 ~ handleFileUpload ~ file:", path);
     if (!path) return;
     setCurFilePath(path);
-    invoke("read_excel", { filePath: path })
+    uploadExcelFile(path)
       .then((data: any) => {
-        console.log("🚀 ~ .then ~ data:", data);
-
         const sheet = data.sheet;
         setData(sheet);
-        instance.current = new RandomNumberGenerator(sheet);
-        setNoUseTeam(instance.current.getNotFoundNumber());
-      })
-      .catch((err) => {});
-  };
+        createInstance(sheet);
+        if (instance.current) {
+          //TODO 进行错误处理
+          setNoUseTeam(instance.current.getNotFoundGroup());
+          console.log(
+            "每次抽取组数：" + instance.current?.getNumberOfExtractions() || 0
+          );
 
-  const updateExcel = () => {
-    console.log("updateExcel", instance.current.getSheets());
-    invoke("update_excel", {
-      filePath: curFilePath as string,
-      newSheets: instance.current.getSheets(),
-    })
-      .then((res) => {
-        alert("更新成功");
+          setGroupCount(() => instance.current?.getGroupNumber() || 0);
+          // 设置当前抽取组数
+          setCurrentNumberOfExtractions(
+            instance.current?.getNumberOfExtractions()
+          );
+          // 设置初始状态
+          setCurRes(() =>
+            Array.from(
+              { length: instance.current?.getNumberOfExtractions() || 0 },
+              () => 0
+            )
+          );
+        }
+        messageApi.success("上传解析成功");
       })
       .catch((err) => {
-        alert(`更新失败${err}`);
+        messageApi.error("上传解析失败" + err);
       });
   };
 
-  const update = (number: number) => {
-    // 更改组数
-    instance.current.setGroupNumber(number);
-    updateExcel();
+  // 更改组数或更新抽签数
+  const updateGroup = (groupNumber: number, NumberOfExtractions: number) => {
+    console.log("🚀 ~ updateGroup ~ NumberOfExtractions:", NumberOfExtractions);
+    instance.current!.setGroupNumber(groupNumber);
+    instance.current!.setNumberOfExtractions(NumberOfExtractions);
+    update();
   };
 
-  // 配置痰喘显示
+  // 数据更新函数入口
+  const update = () => {
+    console.log("数据更新", instance.current?.getSheets());
+    updateExcel(curFilePath, instance.current!.getSheets())
+      .then((res) => {
+        messageApi.success("数据更新到Excel成功");
+      })
+      .catch((err) => {
+        messageApi.error("数据更新到Excel失败" + err);
+      });
+  };
+
+  // 配置弹窗显示
   const [isShow, setShow] = useState(false);
   const [groupCount, setGroupCount] = useState(
     instance.current?.getGroupNumber || 23
@@ -126,13 +135,38 @@ export default function Election() {
     );
   }, [currentNumberOfExtractions]);
 
+  // 创建模板
+
+  const createTemplate = async () => {
+    try {
+      if (window.__TAURI__) {
+        const selected = (await open({
+          directory: true,
+          multiple: false,
+        })) as String;
+        const res = await createExcelTemplate(
+          "E:/random/demo.xlsx",
+          45537,
+          23,
+          3
+        );
+        console.log("🚀 ~ createTemplate ~  res:", res);
+        messageApi.success("创建模板成功");
+      }
+    } catch (err) {
+      messageApi.error("创建模板失败" + err);
+    }
+    return;
+  };
+
   return (
     <main className="w-full h-full flex flex-col justify-center  gap-8  relative ">
       {/* <div className="text-lg font-bold text-center w-full text-5xl">抽签</div> */}
-
+      {contextHolder}
       {data.length == 0 ? (
         <div className="flex justify-center items-center h-full w-full">
           <FileOpener onChange={handleFIleUploadV2} />
+          <Button onClick={createTemplate}>生成模板</Button>
         </div>
       ) : (
         <>
@@ -164,26 +198,20 @@ export default function Election() {
             </div>
           </div>
           <div className="mt-6 flex justify-center gap-6 w-full">
-            {isAllSelected === false ? (
-              <>
-                {curRes.map((item, index) => {
-                  return (
-                    <div
-                      key={index}
-                      className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center "
-                    >
-                      {changeValue && !isPause
-                        ? changeValue
-                        : isPause && item
-                        ? item
-                        : "?"}
-                    </div>
-                  );
-                })}
-              </>
-            ) : (
-              <div>已经全部选取完毕或不够下次抽取</div>
-            )}
+            {curRes.map((item, index) => {
+              return (
+                <div
+                  key={index}
+                  className="w-56 h-56 text-4xl border-solid border-[2px] border-black flex justify-center items-center "
+                >
+                  {changeValue && !isPause
+                    ? changeValue
+                    : isPause && item
+                    ? item
+                    : "?"}
+                </div>
+              );
+            })}
           </div>
           <footer className="w-full h-fit flex-col justify-center items-center gap-6">
             <div className="flex justify-center items-center gap-6">
@@ -202,7 +230,7 @@ export default function Election() {
             <div className="mt-5 flex justify-center items-center">
               <div
                 className="w-40 p-4 rounded-lg bg-red-500 text-center"
-                onClick={() => updateExcel()}
+                onClick={() => update()}
               >
                 添加到Excel
               </div>
@@ -215,7 +243,7 @@ export default function Election() {
         isOpen={isShow}
         onClose={() => setShow(false)}
         title="更改组名"
-        onSubmit={() => update(groupCount)}
+        onSubmit={() => updateGroup(groupCount, currentNumberOfExtractions)}
         children={
           <div className="flex flex-col gap-2">
             <label htmlFor="groupCount" className="flex items-center">
@@ -231,7 +259,6 @@ export default function Election() {
             </label>
             <label htmlFor="groupCount" className=" flex items-center">
               <span className=" w-56">每抽取数：</span>
-
               <input
                 type="number"
                 name="groupCount"
@@ -248,150 +275,4 @@ export default function Election() {
       />
     </main>
   );
-}
-
-type sheetData = any[];
-
-class RandomNumberGenerator {
-  private numbers: number[];
-  private usedNumbers: Set<number>;
-  private sheet: sheetData;
-  preRes: number[] = [];
-  curRes: number[] = [];
-  constructor(sheets: sheetData) {
-    // 已经抽的结构缓存
-    const usedNumbers: number[] = [];
-
-    // 获取已经抽到的号码
-    for (let i = 2; i < sheets.length; i++) {
-      const row: number[] = sheets[i];
-      for (let j = 1; j < 4; j++) {
-        usedNumbers.push(row[j]);
-        console.log(row[j]);
-      }
-    }
-
-    this.numbers = Array.from({ length: sheets[0][5] }, (_, i) => i + 1);
-    this.usedNumbers = new Set(usedNumbers);
-
-    // 去除null值
-    if ((this.usedNumbers as any).has(null)) {
-      (this.usedNumbers as any).delete(null);
-    }
-    this.sheet = sheets;
-  }
-
-  // 获取单个随机数
-  public getRandomNumber(): number | null {
-    if (this.usedNumbers.size === 23) {
-      console.log("所有数字都已被使用");
-      return null;
-    }
-
-    let randomIndex: number;
-    let randomNumber: number;
-
-    do {
-      randomIndex = Math.floor(Math.random() * this.numbers.length);
-      randomNumber = this.numbers[randomIndex];
-    } while (this.usedNumbers.has(randomNumber));
-
-    this.usedNumbers.add(randomNumber);
-    return randomNumber;
-  }
-
-  public setGroupNumber(count: number) {
-    this.numbers = Array.from({ length: count }, (_, i) => i + 1);
-    this.sheet[0][5] = count;
-  }
-
-  // 所有使用过的号码清空
-  public reset(): void {
-    this.usedNumbers.clear();
-  }
-
-  // 还剩未抽到的号码的数量
-  public getRemainingCount(): number {
-    return this.numbers.length - this.usedNumbers.size;
-  }
-  // 获取已经抽到的号码
-  public getRemarkedTeam() {
-    return [...this.usedNumbers];
-  }
-
-  public getNotFoundNumber(): number[] {
-    const res: number[] = [];
-    console.log(this.usedNumbers);
-    for (let i = 0; i <= this.numbers.length - 1; i++) {
-      if (!this.usedNumbers.has(i + 1)) {
-        res.push(i + 1);
-      }
-    }
-    return res;
-  }
-
-  public getGroupNumber(): number {
-    return this.numbers.length;
-  }
-
-  // count个为一组的抽取三组
-  public extractionGroups(count: number) {
-    if (this.curRes.length) {
-      this.preRes = this.curRes;
-    }
-    // 数据清空
-    this.curRes.length = 0;
-    if (this.getNotFoundNumber().length <= 3) {
-      for (let i = 0; i < count; i++) {
-        const res = this.getRandomNumber();
-        if (res) {
-          this.curRes.push(res);
-        }
-      }
-
-      // 格式化数据
-      const date = formatDateTable(convertExcelDate(this.sheet[0][7]));
-
-      this.sheet.push([date, ...this.curRes]);
-      return false;
-    }
-
-    for (let i = 0; i < count; i++) {
-      const res = this.getRandomNumber();
-      if (res) {
-        this.curRes.push(res);
-      } else {
-        return false;
-      }
-    }
-
-    const date = formatDateTable(convertExcelDate(this.sheet[0][7]));
-    const finialRes = fillArrayToSeven([date, ...this.curRes]);
-    // 将获取到结果更新到sheet
-    this.sheet.push(finialRes);
-
-    return this.curRes;
-  }
-  public getSheets() {
-    return this.sheet;
-  }
-}
-
-function formatDateTable(start: Date | string) {
-  const WeeksBetweenDates = convertToChinese(
-    calculateWeeksBetweenDates(start, new Date())
-  );
-
-  const day = getWeekday(new Date(), "long");
-
-  const time = formatTime(new Date());
-
-  return `第${WeeksBetweenDates}周、${day}、${time}`;
-}
-
-function fillArrayToSeven(arr: any[]) {
-  while (arr.length < 8) {
-    arr.push(null); // 可以将null替换为其他你想填充的值
-  }
-  return arr;
 }

@@ -136,6 +136,71 @@ fn update_excel(file_path: String, new_sheets: Vec<Vec<Value>>) -> Result<(), St
 
     Ok(())
 }
+
+#[tauri::command]
+fn generate_excel_template(
+    file_path: String,
+    start_time: f32,
+    all_groups: u32,
+    number_of_extractions: u32,
+) -> Result<String, String> {
+    let file_path = PathBuf::from(file_path);
+    let mut workbook = Workbook::new();
+    let mut sheet = workbook.add_worksheet();
+
+    // Set column widths
+    sheet.set_column_width(0, 2.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(1, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(2, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(3, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(4, 10.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(5, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(6, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(7, 15.0).map_err(|e| e.to_string())?;
+
+    // Create formats
+    let header_format = Format::new()
+        .set_bold()
+        .set_border(rust_xlsxwriter::FormatBorder::Thin);
+
+    // Write headers
+    sheet
+        .write_string_with_format(0, 1, "抽签结果", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 2, "第一组编号", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 3, "第二组编号", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 4, "第三组编号", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 4, "总组数", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 5, "课程开始时间", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(0, 7, "每次抽签数", &header_format)
+        .map_err(|e| e.to_string())?;
+
+    // Write data
+    sheet.write_number(0, 4, 23.0).map_err(|e| e.to_string())?;
+    sheet
+        .write_number(0, 6, 45537.0)
+        .map_err(|e| e.to_string())?;
+    sheet.write_number(0, 8, 4.0).map_err(|e| e.to_string())?;
+
+    // Get the app data directory
+
+    // Save the workbook
+    workbook
+        .save(file_path.clone())
+        .map_err(|e| e.to_string())?;
+    Ok({ file_path.to_str().unwrap().to_string() })
+}
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -146,7 +211,11 @@ fn main() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_excel, update_excel])
+        .invoke_handler(tauri::generate_handler![
+            read_excel,
+            update_excel,
+            generate_excel_template
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

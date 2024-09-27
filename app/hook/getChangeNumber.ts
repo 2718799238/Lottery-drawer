@@ -1,35 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useGetTargetNumber(usedNumbers: Set<number>) {
-  const [curNum, setCurNum] = useState<number>(0);
+export function useChangeNumber(round: number) {
+  // 要变化的数字
+  const [number, setNumber] = useState(0);
+
+  // 控制暂停与继续
   const [isPause, setPause] = useState(true);
+
+  // 缓存存储动画帧函数
   const animated = useRef<any>();
 
-  // 获取未使用的数字
-  const canUseNumber: number[] = [];
-  for (let i = 0; i < 23; i++) {
-    if (!usedNumbers.has(i + 1)) {
-      canUseNumber.push(i + 1);
-    }
-  }
-  console.log("🚀 ~ getTargetNumber ~ canUseNumber:", canUseNumber);
+  // 虚假的数字
+  //  TODO: 暂时这样，后面再优化
+  const canUseNumber: number[] = Array.from({ length: round }, (_, i) => i + 1);
 
-  //   开始随机数字
+  // 随机动画核心函数
   function animate() {
     const res = Math.floor(Math.random() * canUseNumber.length);
-    setCurNum(canUseNumber[res]);
-    //   if (isPause) {
-    //     cancelAnimationFrame(animated.current);
-    //   }
+    setNumber(canUseNumber[res]);
     animated.current = requestAnimationFrame(() => animate());
   }
-  animate();
 
   useEffect(() => {
     if (isPause) {
       cancelAnimationFrame(animated.current);
+    } else {
+      animate();
     }
-  }, [isPause, curNum]);
+  }, [isPause]);
 
-  return { curNum, isPause, setPause };
+  return { number, isPause, setPause };
 }
