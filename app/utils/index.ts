@@ -83,6 +83,39 @@ export function convertExcelDate(
 }
 
 /**
+ * 将YYYYMMDD格式的字符串转换为Excel数字格式的日期时间
+ * @param dateString YYYYMMDD格式的日期字符串
+ * @param use1904Windowing 是否使用1904日期系统（默认为false，即使用1900日期系统）
+ * @returns Excel中的数字格式日期时间
+ */
+export function convertToExcelDate(
+  dateString: number,
+  use1904Windowing: boolean = false
+): number {
+  // 使用dayjs解析输入的日期字符串
+  const date = dayjs(dateString, "YYYYMMDD");
+
+  // 确保日期有效
+  if (!date.isValid()) {
+    throw new Error("Invalid date string. Please use YYYYMMDD format.");
+  }
+
+  // Excel的日期系统起始日期
+  const startDate = use1904Windowing
+    ? dayjs("19040101", "YYYYMMDD")
+    : dayjs("18991230", "YYYYMMDD");
+
+  // 计算天数差
+  const daysDifference = date.diff(startDate, "day", true);
+
+  // 对于1900系统，需要加回1天
+  const excelDate = use1904Windowing ? daysDifference + 1 : daysDifference;
+
+  // 返回四舍五入到小数点后8位的结果
+  return Number(excelDate.toFixed(0));
+}
+
+/**
  * 将英文数字转换为中文数字
  * @param num 要转换的数字（可以是数字或字符串）
  * @returns 转换后的中文数字字符串

@@ -149,49 +149,66 @@ fn generate_excel_template(
     let mut sheet = workbook.add_worksheet();
 
     // Set column widths
-    sheet.set_column_width(0, 2.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(1, 15.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(2, 15.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(3, 15.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(4, 10.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(5, 15.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(6, 15.0).map_err(|e| e.to_string())?;
-    sheet.set_column_width(7, 15.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(0, 23.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(1, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(2, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(3, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(4, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(5, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(6, 12.0).map_err(|e| e.to_string())?;
+    sheet.set_column_width(7, 12.0).map_err(|e| e.to_string())?;
 
     // Create formats
-    let header_format = Format::new()
-        .set_bold()
-        .set_border(rust_xlsxwriter::FormatBorder::Thin);
+    let header_format = Format::new();
+    // .set_bold();
+    // .set_border(rust_xlsxwriter::FormatBorder::Thin);
 
     // Write headers
     sheet
         .write_string_with_format(0, 1, "抽签结果", &header_format)
         .map_err(|e| e.to_string())?;
+    // 创建一个居中对齐的格式
+    let mut center_format = Format::new()
+        .set_align(FormatAlign::Center)
+        .set_border(FormatBorder::Thin)
+        .set_border_color(Color::Black);
+
+    // 合并第一行的前三列并设置格式
+    let merged_cell_content = String::from("抽签结果");
+    let merged_cell_content_str = merged_cell_content.as_str(); // 使用切片
+
     sheet
-        .write_string_with_format(0, 2, "第一组编号", &header_format)
+        .merge_range(0, 0, 0, 3, merged_cell_content_str, &center_format)
         .map_err(|e| e.to_string())?;
     sheet
-        .write_string_with_format(0, 3, "第二组编号", &header_format)
+        .write_string_with_format(1, 1, "第一组编号", &header_format)
         .map_err(|e| e.to_string())?;
     sheet
-        .write_string_with_format(0, 4, "第三组编号", &header_format)
+        .write_string_with_format(1, 2, "第二组编号", &header_format)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_string_with_format(1, 3, "第三组编号", &header_format)
         .map_err(|e| e.to_string())?;
     sheet
         .write_string_with_format(0, 4, "总组数", &header_format)
         .map_err(|e| e.to_string())?;
     sheet
-        .write_string_with_format(0, 5, "课程开始时间", &header_format)
+        .write_string_with_format(0, 6, "课程开始时间", &header_format)
         .map_err(|e| e.to_string())?;
     sheet
-        .write_string_with_format(0, 7, "每次抽签数", &header_format)
+        .write_string_with_format(0, 8, "每次抽签数", &header_format)
         .map_err(|e| e.to_string())?;
 
     // Write data
-    sheet.write_number(0, 4, 23.0).map_err(|e| e.to_string())?;
     sheet
-        .write_number(0, 6, 45537.0)
+        .write_number(0, 5, all_groups)
         .map_err(|e| e.to_string())?;
-    sheet.write_number(0, 8, 4.0).map_err(|e| e.to_string())?;
+    sheet
+        .write_number(0, 7, start_time)
+        .map_err(|e| e.to_string())?;
+    sheet
+        .write_number(0, 9, number_of_extractions)
+        .map_err(|e| e.to_string())?;
 
     // Get the app data directory
 

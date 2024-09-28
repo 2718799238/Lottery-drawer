@@ -1,4 +1,4 @@
-import Election from "./election";
+import Election from "./mainCpn/election";
 
 export default async function Home() {
   return (

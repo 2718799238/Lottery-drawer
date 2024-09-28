@@ -1,13 +1,26 @@
 "use client";
-import { open } from "@tauri-apps/api/dialog";
 import { useEffect, useState } from "react";
-import Modal from "./Component/Modal";
+import Modal1 from "../Component/Modal";
 
-import FileOpener from "./Component/input";
-import { useChangeNumber } from "./hook/getChangeNumber";
-import { createExcelTemplate, updateExcel, uploadExcelFile } from "./api";
-import { Button, message } from "antd";
-import { useGetRandom } from "./hook/getRandom";
+import FileOpener from "../Component/input";
+import { useChangeNumber } from "../hook/useChangeNumber";
+import { createExcelTemplate, updateExcel, uploadExcelFile } from "../api";
+import {
+  Button,
+  message,
+  Divider,
+  Modal,
+  Input,
+  DatePicker,
+  FormProps,
+  Popconfirm,
+} from "antd";
+import { useGetRandom } from "../hook/useGetRandom";
+
+import { useGetOs } from "../hook/useGetDir";
+import CreateTemplateForm, { FieldType } from "./CreateTemplateForm";
+import dayjs from "dayjs";
+import { convertToExcelDate } from "../utils";
 export default function Election() {
   // 保存Excel数据
   const [data, setData] = useState<any[]>([]);
@@ -135,38 +148,58 @@ export default function Election() {
     );
   }, [currentNumberOfExtractions]);
 
-  // 创建模板
+  const [open, setOpen] = useState(false);
 
-  const createTemplate = async () => {
+  // 生成模板
+  const onFinish: FormProps<FieldType>["onFinish"] = async (values) => {
     try {
-      if (window.__TAURI__) {
-        const selected = (await open({
-          directory: true,
-          multiple: false,
-        })) as String;
-        const res = await createExcelTemplate(
-          "E:/random/demo.xlsx",
-          45537,
-          23,
-          3
-        );
-        console.log("🚀 ~ createTemplate ~  res:", res);
-        messageApi.success("创建模板成功");
+      const targetFilePath = values.dirPath + "\\" + values.filename + ".xlsx";
+      const time = convertToExcelDate(values.startTime);
+      const res = await createExcelTemplate(
+        targetFilePath,
+        time,
+        Number(values.allGroups),
+        Number(values.numberOfExtractions)
+      );
+      setOpen2(true);
+      if (res && typeof res === "string") {
+        setCurFilePath(() => res);
       }
-    } catch (err) {
-      messageApi.error("创建模板失败" + err);
+    } catch (e) {
+      console.log("Failed:", e);
+      messageApi.open({
+        type: "error",
+        content: "创建失败" + e,
+      });
     }
-    return;
   };
 
+  //
+  const onFinishFailed: FormProps<FieldType>["onFinishFailed"] = (
+    errorInfo
+  ) => {
+    console.log("Failed:", errorInfo);
+    messageApi.error("创建模板失败" + errorInfo);
+  };
+  const [open2, setOpen2] = useState(false);
+  const handlePopup = (curFilePath: string | string[]) => {
+    handleFIleUploadV2(curFilePath);
+    setOpen2(false);
+    setTimeout(() => {
+      setOpen(false);
+    }, 400);
+  };
   return (
     <main className="w-full h-full flex flex-col justify-center  gap-8  relative ">
       {/* <div className="text-lg font-bold text-center w-full text-5xl">抽签</div> */}
       {contextHolder}
       {data.length == 0 ? (
-        <div className="flex justify-center items-center h-full w-full">
+        <div className="flex flex-col justify-center items-center h-full w-full">
           <FileOpener onChange={handleFIleUploadV2} />
-          <Button onClick={createTemplate}>生成模板</Button>
+          <Divider />
+          <div className="mt-5">
+            <Button onClick={() => setOpen(true)}>生成模板</Button>
+          </div>
         </div>
       ) : (
         <>
@@ -239,7 +272,7 @@ export default function Election() {
         </>
       )}
 
-      <Modal
+      <Modal1
         isOpen={isShow}
         onClose={() => setShow(false)}
         title="更改组名"
@@ -273,6 +306,32 @@ export default function Election() {
           </div>
         }
       />
+      <Modal
+        title="生成Excel模板"
+        open={open}
+        footer={null}
+        onCancel={() => setOpen(false)}
+      >
+        <div className=" w-full flex justify-center items-center">
+          <CreateTemplateForm
+            onFinish={onFinish}
+            onFinishFailed={onFinishFailed}
+            onCancel={() => setOpen(false)}
+            submitBtn={
+              <Popconfirm
+                title="生成完毕，是否导入"
+                okText="导入"
+                cancelText="取消"
+                onCancel={() => setOpen2(false)}
+                open={open2}
+                onConfirm={() => handlePopup(curFilePath)}
+              >
+                生成
+              </Popconfirm>
+            }
+          />
+        </div>
+      </Modal>
     </main>
   );
 }
