@@ -23,8 +23,8 @@ const defaultSubmitBtn = <>提交</>;
 // 默认值
 const defaultValues: Omit<FieldType, "startTime" | "dirPath"> = {
   filename: "template",
-  numberOfExtractions: 23,
-  allGroups: 3,
+  numberOfExtractions: 3,
+  allGroups: 23,
 };
 
 const CreateTemplateForm: React.FC<Props> = ({

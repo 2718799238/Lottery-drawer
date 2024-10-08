@@ -1,5 +1,4 @@
 "use client";
-import "../../public/antd.min.css";
 import { Button, message, Divider, Modal, FormProps, Popconfirm } from "antd";
 import { useEffect, useState } from "react";
 import Modal1 from "../Component/Modal";
@@ -17,27 +16,18 @@ export default function Election() {
   // 保存Excel数据
   const [data, setData] = useState<any[]>([]);
 
-  // 没有抽取到号码
   const [noUseTeam, setNoUseTeam] = useState<number[]>([]);
   const [isAllSelected, setAllSelected] = useState(false);
-
-  // 当前文件路径
   const [curFilePath, setCurFilePath] = useState<string | string[]>("");
-
   const { isPause, setPause, number: changeValue } = useChangeNumber(23);
 
   // 创建抽奖类实例
   const { instance, createInstance } = useGetRandom();
 
-  // 每次抽取的签数
   const [currentNumberOfExtractions, setCurrentNumberOfExtractions] = useState(
     instance.current?.getNumberOfExtractions() || 0
   );
-  const [groupCount, setGroupCount] = useState(
-    instance.current?.getGroupNumber || 23
-  );
 
-  // 记录本次抽取结果
   const [curRes, setCurRes] = useState<number[]>(() =>
     Array.from(
       { length: instance.current?.getNumberOfExtractions() || 0 },
@@ -109,13 +99,6 @@ export default function Election() {
               () => 0
             )
           );
-
-          // 设置Modal数据
-          setModelRes({
-            groupCount: instance.current?.getGroupNumber() || 0,
-            currentNumberOfExtractions:
-              instance.current?.getNumberOfExtractions() || 0,
-          });
         }
         messageApi.success("上传解析成功");
       })
@@ -126,12 +109,8 @@ export default function Election() {
 
   // 更改组数或更新抽签数
   const updateGroup = (groupNumber: number, NumberOfExtractions: number) => {
-    console.log("🚀 ~ updateGroup ~ NumberOfExtractions:", NumberOfExtractions);
-    setGroupCount(groupNumber);
-    setCurrentNumberOfExtractions(NumberOfExtractions);
     instance.current!.setGroupNumber(groupNumber);
     instance.current!.setNumberOfExtractions(NumberOfExtractions);
-    setNoUseTeam(instance.current!.getNotFoundGroup());
     update();
   };
 
@@ -149,13 +128,10 @@ export default function Election() {
 
   // 配置弹窗显示
   const [isShow, setShow] = useState(false);
+  const [groupCount, setGroupCount] = useState(
+    instance.current?.getGroupNumber || 23
+  );
 
-  const [modelRes, setModelRes] = useState(() => {
-    return {
-      groupCount: groupCount,
-      currentNumberOfExtractions: currentNumberOfExtractions,
-    };
-  });
   useEffect(() => {
     setCurRes(() =>
       Array.from({ length: currentNumberOfExtractions }, (_) => 0)
@@ -290,9 +266,7 @@ export default function Election() {
         isOpen={isShow}
         onClose={() => setShow(false)}
         title="更改组名"
-        onSubmit={() =>
-          updateGroup(modelRes.groupCount, modelRes.currentNumberOfExtractions)
-        }
+        onSubmit={() => updateGroup(groupCount, currentNumberOfExtractions)}
         children={
           <div className="flex flex-col gap-2">
             <label htmlFor="groupCount" className="flex items-center">
@@ -302,13 +276,8 @@ export default function Election() {
                 type="number"
                 name="groupCount"
                 id="groupCount"
-                value={modelRes.groupCount}
-                onChange={(event) =>
-                  setModelRes((res) => ({
-                    ...res,
-                    groupCount: Number(event.target.value),
-                  }))
-                }
+                value={groupCount}
+                onChange={(event) => setGroupCount(Number(event.target.value))}
               />
             </label>
             <label htmlFor="groupCount" className=" flex items-center">
@@ -318,12 +287,9 @@ export default function Election() {
                 name="groupCount"
                 id="groupCount"
                 className=" w-full"
-                value={modelRes.currentNumberOfExtractions}
+                value={currentNumberOfExtractions}
                 onChange={(event) =>
-                  setModelRes((res) => ({
-                    ...res,
-                    currentNumberOfExtractions: Number(event.target.value),
-                  }))
+                  setCurrentNumberOfExtractions(Number(event.target.value))
                 }
               />
             </label>

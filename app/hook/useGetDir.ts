@@ -5,7 +5,7 @@ export const useGetOs = () => {
 
   const handleSelectDir = async () => {
     // 在Tauri环境中运行时，使用open函数
-    if ((window as any).__TAURI__) {
+    if ((window && (window as any)).__TAURI__) {
       const selected = (await open({
         directory: true,
         multiple: false,

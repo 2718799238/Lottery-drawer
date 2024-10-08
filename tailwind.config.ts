@@ -15,5 +15,6 @@ const config: Config = {
     },
   },
   plugins: [],
+  corePlugins: {},
 };
 export default config;

@@ -75,12 +75,12 @@
         "digestAlgorithm": "sha256",
         "timestampUrl": "",
         "webviewInstallMode": {
-          "type": "offlineInstaller"
+          "type": "skip"
         }
       }
     },
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:3000 https://localhost:3000"
+      "csp": "default-src 'self'; style-src 'self' 'nonce-你的nonce值'; connect-src 'self' http://localhost:3000 https://localhost:3000;"
     },
     "updater": {
       "active": false

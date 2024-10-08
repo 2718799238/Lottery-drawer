@@ -6,6 +6,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // 忽略 TypeScript 检查
   },
+
   output: "export",
 };
 

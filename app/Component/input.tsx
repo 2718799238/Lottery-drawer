@@ -10,7 +10,7 @@ export default function FileOpener({ onChange }: Props) {
   const handleOpenFile = async () => {
     try {
       // 在Tauri环境中运行时，使用open函数
-      if (window.__TAURI__) {
+      if (window && window.__TAURI__) {
         const selected = await open({
           multiple: false,
           filters: [
